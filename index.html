@@ -212,6 +212,42 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
               border-radius:var(--r);padding:13px 15px;margin-bottom:13px;font-size:13px;color:var(--gold)}
 .setup-banner code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:5px;font-size:12px}
 
+
+/* ═══ MONTHLY PLAN ═══════════════════════════════════════════ */
+.plan-day-hdr{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;padding:5px 2px;text-align:center;
+  font-size:9px;font-weight:700;color:var(--text2);letter-spacing:.4px;
+  margin-bottom:3px;
+}
+.plan-cell{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:5px 4px;min-height:72px;cursor:pointer;
+  transition:border-color .15s;position:relative;
+  display:flex;flex-direction:column;gap:2px;
+}
+.plan-cell:active{border-color:var(--gold)}
+.plan-cell.other-month{background:var(--surface);opacity:.4}
+.plan-cell.today{border-color:var(--green);border-width:2px}
+.plan-cell.has-events{background:rgba(74,175,201,.07);border-color:rgba(74,175,201,.25)}
+.plan-cell.weekend{background:rgba(201,168,76,.04)}
+.plan-day-num{font-size:11px;font-weight:800;color:var(--text);line-height:1;margin-bottom:2px}
+.plan-cell.today .plan-day-num{color:var(--green)}
+.plan-cell.other-month .plan-day-num{color:var(--text3)}
+.plan-ev-chip{
+  font-size:8px;font-weight:600;
+  padding:2px 4px;border-radius:4px;
+  background:rgba(74,175,201,.2);color:var(--cyan);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.3;
+}
+.plan-ev-chip.wedding{background:rgba(231,76,60,.15);color:#ff8a7a}
+.plan-ev-chip.baptism{background:rgba(46,204,113,.15);color:var(--green)}
+.plan-ev-chip.corporate{background:rgba(142,68,173,.15);color:#c39bd3}
+.plan-ev-chip.birthday{background:rgba(230,126,34,.15);color:var(--amber)}
+.plan-more{font-size:8px;color:var(--text3);font-weight:600;padding:1px 0}
+
+
 /* Spinner */
 .spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--border);
       border-top-color:var(--gold);animation:spin .7s linear infinite;margin:40px auto}
@@ -321,6 +357,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <button class="btn btn-ghost" style="margin-top:9px" onclick="clearForm()">Clear</button>
     </div>
 
+    <!-- MONTHLY PLAN -->
+    <div class="page" id="pg-plan">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--gold)" id="plan-title">LOADING...</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Monthly Event Calendar</div>
+        </div>
+        <div style="display:flex;gap:7px">
+          <button onclick="planNav(-1,'year')" style="padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-weight:700;cursor:pointer;font-size:11px">Y‹</button>
+          <button onclick="planNav(-1,'month')" style="padding:6px 11px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-weight:700;cursor:pointer;font-size:13px">‹</button>
+          <button onclick="planNav(1,'month')"  style="padding:6px 11px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-weight:700;cursor:pointer;font-size:13px">›</button>
+          <button onclick="planNav(1,'year')"  style="padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-weight:700;cursor:pointer;font-size:11px">Y›</button>
+        </div>
+      </div>
+      <div id="plan-grid"></div>
+    </div>
+
     <!-- SETTINGS -->
     <div class="page" id="pg-settings">
       <div class="sh-title">⚙️ Settings</div>
@@ -366,7 +419,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <button class="nb active" id="nb-home"     onclick="goPage('pg-home')">    <span class="ni">🏠</span><span class="nl">HOME</span></button>
     <button class="nb"        id="nb-events"   onclick="goPage('pg-events')">  <span class="ni">📋</span><span class="nl">EVENTS</span></button>
     <button class="nb"        id="nb-add"      onclick="goPage('pg-add')">     <span class="ni">➕</span><span class="nl">NEW</span></button>
-    <button class="nb"        id="nb-settings" onclick="goPage('pg-settings')" style="display:none"><span class="ni">⚙️</span><span class="nl">SETTINGS</span></button>
+    <button class="nb"        id="nb-plan"     onclick="goPage('pg-plan')">    <span class="ni">📅</span><span class="nl">PLAN</span></button>
+    <button class="nb"        id="nb-settings" onclick="goPage('pg-settings')"><span class="ni">⚙️</span><span class="nl">SETTINGS</span></button>
   </div>
 
 </div><!-- /app -->
@@ -392,8 +446,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 // ═══════════════════════════════════════════════════════════════
 let API_URL    = localStorage.getItem('api_url') || '';
 let events     = JSON.parse(localStorage.getItem('events_cache') || '[]');
-let eventTypes = JSON.parse(localStorage.getItem('ev_types') || '["Wedding","Baptism","Corporate","Birthday","Conference","Other"]');
-let hallsList  = JSON.parse(localStorage.getItem('halls_list') || '["Main Hall","Garden","VIP Room","Terrace"]');
+let eventTypes = JSON.parse(localStorage.getItem('ev_types') || '["CATERING","ΑΡΡΑΒΩΝΑΣ","ΒΑΠΤΙΣΗ","ΓΑΜΟΣ","ΓΕΝΕΘΛΙΑ","ΕΞΕΤΑΣΕΙΣ","ΕΤΑΙΡΙΚΟ","ΠΡΟΓΛΕΝΤΙ","ΣΥΝΕΔΡΙΟ","ΤΡΑΠΕΖΙ"]');
+let hallsList  = JSON.parse(localStorage.getItem('halls_list') || '["ΑΜΦΙΘΕΑΤΡΟ","ΕΣΤΙΑΤΟΡΙΟ","ΚΗΠΟΣ","ΚΤΗΜΑ","ΚΤΗΜΑ ΔΕΝΤΡΑ","ΚΤΗΜΑ/ΑΜΦΙΘ","ΚΤΗΜΑ/ΤΕΡΨ","ΠΑΛΑΤΑΚΙ","ΠΙΣΙΝΑ","ΤΕΡΨΙΧΟΡΗ","ΤΕΡΨΙΧΟΡΗ ΠΑΡΑΘΥΡΑ","ΤΕΡΨΙΧΟΡΗ ΠΙΣΤΑ"]');
 let curFilter  = 'all';
 let curDetail  = null;
 
@@ -410,7 +464,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (!API_URL) {
     document.getElementById('setup-notice').style.display = 'block';
-    document.getElementById('nb-settings').style.display = 'flex';
+    // settings always visible
   }
 
   renderHome();
@@ -429,13 +483,14 @@ function goPage(id) {
   document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 
-  const map = {'pg-home':'nb-home','pg-events':'nb-events','pg-add':'nb-add','pg-settings':'nb-settings'};
+  const map = {'pg-home':'nb-home','pg-events':'nb-events','pg-add':'nb-add','pg-plan':'nb-plan','pg-settings':'nb-settings'};
   if (map[id]) document.getElementById(map[id]).classList.add('active');
 
   document.getElementById('fab').style.display = (id === 'pg-add') ? 'none' : 'flex';
 
   if (id === 'pg-events') renderList();
   if (id === 'pg-home')   renderHome();
+  if (id === 'pg-plan')   renderPlan();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -745,6 +800,137 @@ function loadFormLists() {
   ts.innerHTML = '<option value="">Select type…</option>' + eventTypes.map(t=>`<option>${t}</option>`).join('');
   hs.innerHTML = '<option value="">Select hall…</option>' + hallsList.map(h=>`<option>${h}</option>`).join('');
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// MONTHLY PLAN
+// ═══════════════════════════════════════════════════════════════
+let planYear  = new Date().getFullYear();
+let planMonth = new Date().getMonth(); // 0-indexed
+
+const MONTH_NAMES = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                     'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+const DAY_NAMES   = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+
+function planNav(dir, unit) {
+  if (unit === 'year') {
+    planYear += dir;
+  } else {
+    planMonth += dir;
+    if (planMonth > 11) { planMonth = 0;  planYear++; }
+    if (planMonth < 0)  { planMonth = 11; planYear--; }
+  }
+  renderPlan();
+}
+
+function renderPlan() {
+  document.getElementById('plan-title').textContent = MONTH_NAMES[planMonth] + '  ' + planYear;
+
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(planYear, planMonth, 1);
+  const lastDay  = new Date(planYear, planMonth + 1, 0);
+  // Monday-first: 0=Mon..6=Sun
+  let startOffset = firstDay.getDay() - 1;
+  if (startOffset < 0) startOffset = 6;
+
+  const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+
+  // Build events map: "YYYY-MM-DD" -> [events]
+  const evMap = {};
+  events.forEach(e => {
+    const k = e.date ? e.date.substring(0, 10) : '';
+    if (!evMap[k]) evMap[k] = [];
+    evMap[k].push(e);
+  });
+
+  // Chip color by type
+  function chipClass(type) {
+    const t = (type||'').toLowerCase();
+    if (t.includes('γαμ') || t.includes('wed'))  return 'wedding';
+    if (t.includes('βαπτ') || t.includes('bap'))  return 'baptism';
+    if (t.includes('εταιρ') || t.includes('corp')) return 'corporate';
+    if (t.includes('γενεθ') || t.includes('birth')) return 'birthday';
+    return '';
+  }
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px">';
+  DAY_NAMES.forEach((d,i) => {
+    const wknd = i >= 5 ? 'color:var(--gold)' : '';
+    html += `<div class="plan-day-hdr" style="${wknd}">${d}</div>`;
+  });
+  html += '</div>';
+
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+
+  for (let i = 0; i < totalCells; i++) {
+    const dayOffset = i - startOffset + 1;
+    const isThisMonth = dayOffset >= 1 && dayOffset <= lastDay.getDate();
+    const cellDate = new Date(planYear, planMonth, dayOffset);
+    const dateKey  = cellDate.toISOString().substring(0, 10);
+    const dayEvs   = evMap[dateKey] || [];
+    const isToday  = cellDate.toDateString() === today.toDateString();
+    const isWeekend= (i % 7) >= 5;
+
+    let cls = 'plan-cell';
+    if (!isThisMonth) cls += ' other-month';
+    if (isToday)      cls += ' today';
+    if (dayEvs.length > 0 && isThisMonth) cls += ' has-events';
+    if (isWeekend && isThisMonth)         cls += ' weekend';
+
+    let inner = `<div class="plan-day-num">${isThisMonth ? dayOffset : ''}</div>`;
+
+    if (isThisMonth && dayEvs.length > 0) {
+      const show = dayEvs.slice(0, 2);
+      show.forEach(e => {
+        // Show: customer (short) + hall
+        let label = (e.customer||'').length > 8
+          ? e.customer.substring(0,7) + '…'
+          : (e.customer||'—');
+        if (e.hall) label += ' · ' + (e.hall.length > 6 ? e.hall.substring(0,5)+'…' : e.hall);
+        inner += `<div class="plan-ev-chip ${chipClass(e.type)}" title="${e.customer} | ${e.type} | ${e.hall} | ${e.people} guests">${label}</div>`;
+      });
+      if (dayEvs.length > 2) {
+        inner += `<div class="plan-more">+${dayEvs.length - 2} more</div>`;
+      }
+    }
+
+    // Click opens day detail list
+    const clickFn = isThisMonth && dayEvs.length > 0
+      ? `onclick="openDayDetail('${dateKey}',${dayOffset})"`
+      : '';
+
+    html += `<div class="${cls}" ${clickFn}>${inner}</div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('plan-grid').innerHTML = html;
+}
+
+function openDayDetail(dateKey, day) {
+  const dayEvs = events.filter(e => (e.date||'').substring(0,10) === dateKey);
+  if (!dayEvs.length) return;
+
+  const d = new Date(dateKey);
+  document.getElementById('det-body').innerHTML = `
+    <div style="font-size:17px;font-weight:800;color:var(--gold);margin-bottom:4px">
+      ${day} ${MONTH_NAMES[d.getMonth()].substring(0,3)} ${d.getFullYear()}
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px">${dayEvs.length} event${dayEvs.length>1?'s':''}</div>
+    ${dayEvs.map(e => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:9px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:7px">${e.customer||'—'}</div>
+        <div class="ev-tags">
+          ${e.type   ? `<span class="tag t">${e.type}</span>` : ''}
+          ${e.hall   ? `<span class="tag h">${e.hall}</span>` : ''}
+          ${e.people ? `<span class="tag p">👥 ${e.people}</span>` : ''}
+          <span class="tag" style="color:var(--green)">${e.status||'Confirmed'}</span>
+        </div>
+      </div>`).join('')}
+  `;
+  document.getElementById('det-del-btn').style.display = 'none';
+  document.getElementById('det-overlay').classList.add('open');
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // UTILS
