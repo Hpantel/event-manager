@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0D1B2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EventMgr">
+<link rel="manifest" href="manifest.json">
+<title>Pantelidis Event Manager</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   RESET & VARIABLES
+═══════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0A1520; --surface:#111F30; --card:#162334; --border:#1E3248;
+  --gold:#C9A84C; --gold2:#E8C96A; --cyan:#4AAFC9;
+  --green:#2ECC71; --red:#E74C3C; --purple:#8E44AD; --amber:#E67E22;
+  --text:#EAF0F6; --text2:#7A9BB5; --text3:#2E4460;
+  --r:14px; --shadow:0 8px 32px rgba(0,0,0,.5);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+
+/* ═══════════════════════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════════════════════ */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:480px;margin:0 auto}
+
+/* Header */
+#hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px 10px;
+     display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
+#hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+            background:linear-gradient(90deg,var(--gold),var(--cyan),var(--gold))}
+.hdr-title{font-size:15px;font-weight:700;color:var(--gold);letter-spacing:.5px}
+.hdr-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.sync-btn{width:34px;height:34px;border-radius:10px;background:var(--card);border:1px solid var(--border);
+          color:var(--cyan);font-size:17px;display:flex;align-items:center;justify-content:center;
+          cursor:pointer;transition:transform .3s}
+.sync-btn.spinning{animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Pages */
+#pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none;animation:fade .2s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* Bottom Nav */
+#nav{background:var(--surface);border-top:1px solid var(--border);display:flex;flex-shrink:0;
+     padding:5px 0 max(5px,env(safe-area-inset-bottom))}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;
+    cursor:pointer;border:none;background:none;color:var(--text3);font-family:inherit;transition:all .15s}
+.nb .ni{font-size:20px}
+.nb .nl{font-size:10px;font-weight:600;letter-spacing:.3px}
+.nb.active{color:var(--gold)}
+.nb.active .ni{transform:translateY(-1px)}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPONENTS
+═══════════════════════════════════════════════════════════ */
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+      padding:14px 12px;text-align:center;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac,var(--gold))}
+.stat.g{--ac:var(--green)}.stat.c{--ac:var(--cyan)}.stat.p{--ac:var(--purple)}.stat.a{--ac:var(--amber)}
+.stat-n{font-size:30px;font-weight:800;line-height:1}
+.stat-l{font-size:11px;color:var(--text2);margin-top:3px;font-weight:600}
+
+/* Card */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:11px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.card-ttl{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.6px;text-transform:uppercase}
+
+/* Event item */
+.ev{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+    padding:13px;margin-bottom:9px;display:flex;gap:11px;cursor:pointer;
+    position:relative;overflow:hidden;transition:border-color .15s,transform .12s}
+.ev::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+            background:var(--ec,var(--cyan));border-radius:4px 0 0 4px}
+.ev:active{transform:scale(.98);border-color:var(--gold)}
+.ev.past{opacity:.5}
+.ev.today::before{background:var(--green)}
+
+.ev-date{background:var(--surface);border-radius:10px;padding:7px 9px;text-align:center;
+         flex-shrink:0;min-width:50px;border:1px solid var(--border)}
+.ev-day{font-size:22px;font-weight:800;line-height:1}
+.ev-mon{font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase}
+.ev-yr{font-size:10px;color:var(--text3)}
+
+.ev-info{flex:1;min-width:0}
+.ev-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-tags{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.tag{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;
+     background:var(--surface);border:1px solid var(--border);color:var(--text2)}
+.tag.t{background:rgba(74,175,201,.1);border-color:rgba(74,175,201,.3);color:var(--cyan)}
+.tag.h{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.3);color:var(--gold)}
+.tag.p{background:rgba(46,204,113,.1);border-color:rgba(46,204,113,.3);color:var(--green)}
+
+/* Search */
+.srch{position:relative;margin-bottom:12px}
+.srch input{width:100%;padding:10px 13px 10px 38px;background:var(--card);
+            border:1px solid var(--border);border-radius:var(--r);color:var(--text);
+            font-family:inherit;font-size:14px;outline:none;transition:border-color .2s}
+.srch input:focus{border-color:var(--gold)}
+.srch input::placeholder{color:var(--text3)}
+.srch-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+
+/* Filter pills */
+.filters{display:flex;gap:7px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.filters::-webkit-scrollbar{display:none}
+.fpill{padding:5px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);
+       color:var(--text2);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;
+       transition:all .15s;letter-spacing:.3px}
+.fpill.active{background:rgba(201,168,76,.15);border-color:var(--gold);color:var(--gold)}
+
+/* Month label */
+.month-sep{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;
+           text-transform:uppercase;padding:8px 2px 6px;display:flex;align-items:center;gap:8px}
+.month-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* FAB */
+.fab{position:fixed;bottom:78px;right:16px;width:52px;height:52px;border-radius:15px;
+     background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0A1520;
+     font-size:26px;font-weight:700;border:none;cursor:pointer;
+     box-shadow:0 4px 20px rgba(201,168,76,.4);display:flex;align-items:center;
+     justify-content:center;z-index:100;transition:transform .12s}
+.fab:active{transform:scale(.9)}
+
+/* Bottom sheet modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;
+         display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;
+       max-height:92vh;overflow-y:auto;padding:0 18px max(20px,env(safe-area-inset-bottom));
+       transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);
+       border-top:1px solid var(--border)}
+.overlay.open .sheet{transform:translateY(0)}
+.handle{width:38px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 18px}
+.sh-title{font-size:18px;font-weight:800;color:var(--gold);margin-bottom:3px}
+.sh-sub{font-size:12px;color:var(--text2);margin-bottom:20px}
+
+/* Form fields */
+.field{margin-bottom:15px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text2);
+             letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.field input,.field select{width:100%;padding:11px 13px;background:var(--card);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);
+  font-family:inherit;font-size:15px;outline:none;transition:border-color .2s;
+  -webkit-appearance:none;appearance:none}
+.field input:focus,.field select:focus{border-color:var(--gold)}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M5 6L0 0h10z' fill='%237A9BB5'/%3E%3C/svg%3E");
+              background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+
+/* Buttons */
+.btn{width:100%;padding:13px;border-radius:11px;font-family:inherit;font-size:15px;font-weight:700;
+     border:none;cursor:pointer;transition:transform .1s,opacity .1s;
+     display:flex;align-items:center;justify-content:center;gap:7px}
+.btn:active{transform:scale(.97)}
+.btn+.btn{margin-top:9px}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#0A1520;box-shadow:0 4px 16px rgba(201,168,76,.3)}
+.btn-danger{background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);color:var(--red)}
+.btn-ghost{background:var(--card);border:1px solid var(--border);color:var(--text2)}
+.btn:disabled{opacity:.4;pointer-events:none}
+
+/* Detail sheet */
+.det-hdr{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+.det-icon{width:50px;height:50px;border-radius:13px;background:rgba(74,175,201,.12);
+          border:1px solid rgba(74,175,201,.25);display:flex;align-items:center;
+          justify-content:center;font-size:22px;flex-shrink:0}
+.det-name{font-size:19px;font-weight:800}
+.det-date{font-size:13px;color:var(--text2);margin-top:2px}
+.det-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.det-row:last-of-type{border-bottom:none}
+.det-ico{width:30px;text-align:center;font-size:15px;flex-shrink:0}
+.det-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.det-val{font-size:14px;font-weight:600;margin-top:2px}
+
+/* Type breakdown bars */
+.type-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.type-name{font-size:12px;color:var(--text2);width:90px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type-bar-wrap{flex:1;background:var(--border);border-radius:4px;height:6px;overflow:hidden}
+.type-bar{height:100%;border-radius:4px;background:var(--gold);transition:width .5s ease}
+.type-count{font-size:12px;font-weight:700;color:var(--text);width:24px;text-align:right;flex-shrink:0}
+
+/* Next event card */
+.next-card{background:linear-gradient(135deg,rgba(74,175,201,.08),rgba(201,168,76,.08));
+           border:1px solid rgba(201,168,76,.2);border-radius:var(--r);padding:14px;margin-bottom:11px}
+.next-days{background:var(--gold);color:#0A1520;font-size:11px;font-weight:800;
+           padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+
+/* Empty */
+.empty{text-align:center;padding:50px 20px;color:var(--text3)}
+.empty-ico{font-size:44px;margin-bottom:12px}
+.empty-ttl{font-size:15px;font-weight:700;color:var(--text2);margin-bottom:5px}
+.empty-sub{font-size:13px}
+
+/* Toast */
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%) translateY(16px);
+       background:var(--card);border:1px solid var(--border);border-radius:11px;
+       padding:11px 18px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;
+       z-index:999;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(46,204,113,.4);color:var(--green)}
+.toast.err{border-color:rgba(231,76,60,.4);color:var(--red)}
+
+/* Setup banner */
+.setup-banner{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);
+              border-radius:var(--r);padding:13px 15px;margin-bottom:13px;font-size:13px;color:var(--gold)}
+.setup-banner code{background:rgba(0,0,0,.3);padding:2px 6px;border-radius:5px;font-size:12px}
+
+/* Spinner */
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--border);
+      border-top-color:var(--gold);animation:spin .7s linear infinite;margin:40px auto}
+
+/* Config modal */
+.cfg-field{margin-bottom:13px}
+.cfg-field label{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.cfg-field input{width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);
+                  border-radius:9px;color:var(--text);font-family:monospace;font-size:12px;outline:none}
+.cfg-field input:focus{border-color:var(--gold)}
+
+@media(min-width:480px){
+  body{background:#060e16;display:flex;align-items:center;justify-content:center}
+  #app{box-shadow:0 0 60px rgba(0,0,0,.8)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="hdr">
+    <div>
+      <div class="hdr-title">✦ PANTELIDIS</div>
+      <div class="hdr-sub">Event Manager</div>
+    </div>
+    <button class="sync-btn" id="syncBtn" onclick="syncData()" title="Sync">↻</button>
+  </div>
+
+  <!-- PAGES -->
+  <div id="pages">
+
+    <!-- HOME -->
+    <div class="page active" id="pg-home">
+      <div class="setup-banner" id="setup-notice" style="display:none">
+        ⚙️ <strong>First setup needed.</strong> Tap <strong>Settings</strong> below and paste your Google Apps Script URL.
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat g"><div class="stat-n" id="s-upcoming">—</div><div class="stat-l">Upcoming</div></div>
+        <div class="stat c"><div class="stat-n" id="s-total">—</div><div class="stat-l">Total Events</div></div>
+        <div class="stat a"><div class="stat-n" id="s-month">—</div><div class="stat-l">This Month</div></div>
+        <div class="stat p"><div class="stat-n" id="s-past">—</div><div class="stat-l">Completed</div></div>
+      </div>
+
+      <div class="next-card" id="next-card" style="display:none">
+        <div class="card-hdr">
+          <span class="card-ttl">⚡ Next Event</span>
+          <span class="next-days" id="next-days-lbl"></span>
+        </div>
+        <div id="next-ev-body"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr"><span class="card-ttl">📊 Events by Type</span></div>
+        <div id="type-chart"></div>
+      </div>
+    </div>
+
+    <!-- EVENTS -->
+    <div class="page" id="pg-events">
+      <div class="srch">
+        <span class="srch-ico">🔍</span>
+        <input type="text" id="search" placeholder="Search name, type, hall…" oninput="renderList()">
+      </div>
+      <div class="filters">
+        <div class="fpill active" id="f-all"     onclick="setFilter('all')">All</div>
+        <div class="fpill"        id="f-upcoming" onclick="setFilter('upcoming')">Upcoming</div>
+        <div class="fpill"        id="f-today"    onclick="setFilter('today')">Today</div>
+        <div class="fpill"        id="f-past"     onclick="setFilter('past')">Past</div>
+      </div>
+      <div id="ev-list"></div>
+    </div>
+
+    <!-- ADD EVENT -->
+    <div class="page" id="pg-add">
+      <div class="sh-title">➕ New Event</div>
+      <div class="sh-sub" style="margin-bottom:18px">Fill in the details below</div>
+
+      <div class="field">
+        <label>📅 Event Date</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="field">
+        <label>👤 Customer Name</label>
+        <input type="text" id="f-customer" placeholder="Full name or company">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>🎉 Event Type</label>
+          <select id="f-type"><option value="">Select…</option></select>
+        </div>
+        <div class="field">
+          <label>🏛 Hall</label>
+          <select id="f-hall"><option value="">Select…</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>👥 Guests</label>
+        <input type="number" id="f-people" placeholder="0" min="0">
+      </div>
+      <div class="field">
+        <label>📝 Notes</label>
+        <input type="text" id="f-notes" placeholder="Special requirements…">
+      </div>
+      <button class="btn btn-primary" onclick="saveEvent()">✔ &nbsp;Save Event</button>
+      <button class="btn btn-ghost" style="margin-top:9px" onclick="clearForm()">Clear</button>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="pg-settings">
+      <div class="sh-title">⚙️ Settings</div>
+      <div class="sh-sub" style="margin-bottom:20px">Connect to Google Sheets</div>
+
+      <div class="cfg-field">
+        <label>Google Apps Script URL</label>
+        <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/…/exec">
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.6">
+        1. Go to <strong>script.google.com</strong><br>
+        2. Paste <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px">Code.gs</code> → Deploy → Web App<br>
+        3. Copy the URL and paste it above
+      </div>
+      <button class="btn btn-primary" onclick="saveConfig()">💾 &nbsp;Save & Connect</button>
+
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+        <div class="card-ttl" style="margin-bottom:12px">EVENT TYPES</div>
+        <div id="types-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="new-type" placeholder="Add type…" style="flex:1;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:14px;outline:none">
+          <button onclick="addType()" style="padding:9px 16px;background:var(--gold);color:#0A1520;border:none;border-radius:9px;font-weight:700;cursor:pointer">+</button>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+        <div class="card-ttl" style="margin-bottom:12px">HALLS / VENUES</div>
+        <div id="halls-list" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="new-hall" placeholder="Add hall…" style="flex:1;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:inherit;font-size:14px;outline:none">
+          <button onclick="addHall()" style="padding:9px 16px;background:var(--gold);color:#0A1520;border:none;border-radius:9px;font-weight:700;cursor:pointer">+</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pages -->
+
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="goPage('pg-add')" title="New Event">+</button>
+
+  <!-- BOTTOM NAV -->
+  <div id="nav">
+    <button class="nb active" id="nb-home"     onclick="goPage('pg-home')">    <span class="ni">🏠</span><span class="nl">HOME</span></button>
+    <button class="nb"        id="nb-events"   onclick="goPage('pg-events')">  <span class="ni">📋</span><span class="nl">EVENTS</span></button>
+    <button class="nb"        id="nb-add"      onclick="goPage('pg-add')">     <span class="ni">➕</span><span class="nl">NEW</span></button>
+    <button class="nb"        id="nb-settings" onclick="goPage('pg-settings')" style="display:none"><span class="ni">⚙️</span><span class="nl">SETTINGS</span></button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="det-overlay" onclick="closeDetail(event)">
+  <div class="sheet" id="det-sheet">
+    <div class="handle"></div>
+    <div id="det-body"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-danger" id="det-del-btn">🗑 &nbsp;Delete Event</button>
+      <button class="btn btn-ghost"  onclick="closeDetailSheet()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG & STATE
+// ═══════════════════════════════════════════════════════════════
+let API_URL    = localStorage.getItem('api_url') || '';
+let events     = JSON.parse(localStorage.getItem('events_cache') || '[]');
+let eventTypes = JSON.parse(localStorage.getItem('ev_types') || '["Wedding","Baptism","Corporate","Birthday","Conference","Other"]');
+let hallsList  = JSON.parse(localStorage.getItem('halls_list') || '["Main Hall","Garden","VIP Room","Terrace"]');
+let curFilter  = 'all';
+let curDetail  = null;
+
+const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const EV_COLORS= ['#4AAFC9','#C9A84C','#8E44AD','#2ECC71','#E67E22','#E74C3C'];
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+
+  document.getElementById('cfg-url').value = API_URL;
+
+  if (!API_URL) {
+    document.getElementById('setup-notice').style.display = 'block';
+    document.getElementById('nb-settings').style.display = 'flex';
+  }
+
+  renderHome();
+  renderList();
+  loadFormLists();
+  renderSettings();
+
+  if (API_URL) syncData();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const map = {'pg-home':'nb-home','pg-events':'nb-events','pg-add':'nb-add','pg-settings':'nb-settings'};
+  if (map[id]) document.getElementById(map[id]).classList.add('active');
+
+  document.getElementById('fab').style.display = (id === 'pg-add') ? 'none' : 'flex';
+
+  if (id === 'pg-events') renderList();
+  if (id === 'pg-home')   renderHome();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════════
+async function api(action, data = {}) {
+  if (!API_URL) throw new Error('No API URL configured');
+  const url = API_URL + '?action=' + action;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ action, ...data }),
+    headers: { 'Content-Type': 'text/plain' }
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json.data;
+}
+
+async function syncData() {
+  if (!API_URL) return;
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('spinning');
+  try {
+    events = await api('getEvents');
+    localStorage.setItem('events_cache', JSON.stringify(events));
+    renderHome();
+    renderList();
+    toast('Synced ✓', 'ok');
+  } catch(e) {
+    toast('Sync failed: ' + e.message, 'err');
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOME / DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderHome() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = events.filter(e => new Date(e.date) >= today);
+  const past     = events.filter(e => new Date(e.date) <  today);
+  const thisMonth= events.filter(e => {
+    const d = new Date(e.date);
+    return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+  });
+
+  document.getElementById('s-upcoming').textContent = upcoming.length;
+  document.getElementById('s-total').textContent    = events.length;
+  document.getElementById('s-month').textContent    = thisMonth.length;
+  document.getElementById('s-past').textContent     = past.length;
+
+  // Next event
+  const nextCard = document.getElementById('next-card');
+  if (upcoming.length > 0) {
+    const nev = upcoming[0];
+    const days = Math.round((new Date(nev.date) - today) / 86400000);
+    document.getElementById('next-days-lbl').textContent =
+      days === 0 ? 'TODAY' : days === 1 ? 'Tomorrow' : 'In ' + days + ' days';
+    document.getElementById('next-ev-body').innerHTML = `
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">${nev.customer}</div>
+      <div class="ev-tags">
+        <span class="tag t">${nev.type || '—'}</span>
+        <span class="tag h">${nev.hall || '—'}</span>
+        <span class="tag p">👥 ${nev.people || 0}</span>
+        <span class="tag">${fmtDate(nev.date)}</span>
+      </div>`;
+    nextCard.style.display = 'block';
+  } else {
+    nextCard.style.display = 'none';
+  }
+
+  // Type breakdown
+  const byType = {};
+  events.forEach(e => { byType[e.type||'Other'] = (byType[e.type||'Other']||0)+1; });
+  const sorted = Object.entries(byType).sort((a,b) => b[1]-a[1]);
+  const max    = sorted[0]?.[1] || 1;
+  document.getElementById('type-chart').innerHTML = sorted.length === 0
+    ? '<div class="empty-sub">No events yet</div>'
+    : sorted.map(([t,n],i) => `
+        <div class="type-row">
+          <div class="type-name">${t}</div>
+          <div class="type-bar-wrap"><div class="type-bar" style="width:${(n/max*100).toFixed(0)}%;background:${EV_COLORS[i%EV_COLORS.length]}"></div></div>
+          <div class="type-count">${n}</div>
+        </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENTS LIST
+// ═══════════════════════════════════════════════════════════════
+function setFilter(f) {
+  curFilter = f;
+  document.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
+  document.getElementById('f-'+f).classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const q     = document.getElementById('search').value.toLowerCase();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let filtered = events.filter(e => {
+    const d = new Date(e.date);
+    if (curFilter === 'upcoming') return d >= today;
+    if (curFilter === 'today')    return d.toDateString() === today.toDateString();
+    if (curFilter === 'past')     return d < today;
+    return true;
+  });
+
+  if (q) filtered = filtered.filter(e =>
+    (e.customer||'').toLowerCase().includes(q) ||
+    (e.type||'').toLowerCase().includes(q) ||
+    (e.hall||'').toLowerCase().includes(q)
+  );
+
+  const el = document.getElementById('ev-list');
+  if (filtered.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-ico">📭</div>
+      <div class="empty-ttl">No events found</div>
+      <div class="empty-sub">Try a different filter or search</div>
+    </div>`;
+    return;
+  }
+
+  // Group by month
+  const byMonth = {};
+  filtered.forEach(e => {
+    const d   = new Date(e.date);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const lbl = MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+    if (!byMonth[key]) byMonth[key] = { lbl, items: [] };
+    byMonth[key].items.push(e);
+  });
+
+  el.innerHTML = Object.values(byMonth).map(g => `
+    <div class="month-sep">${g.lbl}</div>
+    ${g.items.map(e => evCard(e, today)).join('')}
+  `).join('');
+}
+
+function evCard(e, today) {
+  const d   = new Date(e.date);
+  const cls = d < today ? 'past' : (d.toDateString()===today.toDateString() ? 'today' : '');
+  const ci  = Math.abs(e.id||0) % EV_COLORS.length;
+  return `<div class="ev ${cls}" style="--ec:${EV_COLORS[ci]}" onclick="openDetail(${e.id})">
+    <div class="ev-date">
+      <div class="ev-day">${d.getDate()}</div>
+      <div class="ev-mon">${MONTHS[d.getMonth()]}</div>
+      <div class="ev-yr">${d.getFullYear()}</div>
+    </div>
+    <div class="ev-info">
+      <div class="ev-name">${e.customer||'—'}</div>
+      <div class="ev-tags">
+        ${e.type ? `<span class="tag t">${e.type}</span>` : ''}
+        ${e.hall ? `<span class="tag h">${e.hall}</span>` : ''}
+        ${e.people ? `<span class="tag p">👥 ${e.people}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DETAIL MODAL
+// ═══════════════════════════════════════════════════════════════
+function openDetail(id) {
+  curDetail = events.find(e => String(e.id) === String(id));
+  if (!curDetail) return;
+  const d = new Date(curDetail.date);
+  const typeIcons = {Wedding:'💍',Baptism:'👶',Corporate:'🏢',Birthday:'🎂',Conference:'🎤',Other:'🎉'};
+  const icon = typeIcons[curDetail.type] || '🎉';
+
+  document.getElementById('det-body').innerHTML = `
+    <div class="det-hdr">
+      <div class="det-icon">${icon}</div>
+      <div>
+        <div class="det-name">${curDetail.customer||'—'}</div>
+        <div class="det-date">${fmtDate(curDetail.date)}</div>
+      </div>
+    </div>
+    <div class="det-row"><div class="det-ico">🎉</div><div><div class="det-lbl">Event Type</div><div class="det-val">${curDetail.type||'—'}</div></div></div>
+    <div class="det-row"><div class="det-ico">🏛</div><div><div class="det-lbl">Hall / Venue</div><div class="det-val">${curDetail.hall||'—'}</div></div></div>
+    <div class="det-row"><div class="det-ico">👥</div><div><div class="det-lbl">Guests</div><div class="det-val">${curDetail.people||'—'}</div></div></div>
+    <div class="det-row"><div class="det-ico">✅</div><div><div class="det-lbl">Status</div><div class="det-val">${curDetail.status||'Confirmed'}</div></div></div>
+    ${curDetail.notes ? `<div class="det-row"><div class="det-ico">📝</div><div><div class="det-lbl">Notes</div><div class="det-val">${curDetail.notes}</div></div></div>` : ''}
+  `;
+
+  document.getElementById('det-del-btn').onclick = () => deleteEvent(curDetail.id);
+  document.getElementById('det-overlay').classList.add('open');
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('det-overlay')) closeDetailSheet();
+}
+function closeDetailSheet() {
+  document.getElementById('det-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAVE / DELETE
+// ═══════════════════════════════════════════════════════════════
+async function saveEvent() {
+  const date     = document.getElementById('f-date').value;
+  const customer = document.getElementById('f-customer').value.trim();
+  const type     = document.getElementById('f-type').value;
+  const hall     = document.getElementById('f-hall').value;
+  const people   = document.getElementById('f-people').value;
+  const notes    = document.getElementById('f-notes').value.trim();
+
+  if (!date)     return toast('Please enter a date', 'err');
+  if (!customer) return toast('Please enter customer name', 'err');
+  if (!type)     return toast('Please select event type', 'err');
+
+  const btn = document.querySelector('#pg-add .btn-primary');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    if (API_URL) {
+      await api('addEvent', { date, customer, type, hall, people: parseInt(people)||0, notes });
+      await syncData();
+    } else {
+      // Local only
+      const newEv = { id: Date.now(), date, customer, type, hall, people: parseInt(people)||0, notes, status:'Confirmed' };
+      events.push(newEv);
+      events.sort((a,b) => new Date(a.date)-new Date(b.date));
+      localStorage.setItem('events_cache', JSON.stringify(events));
+      renderHome(); renderList();
+    }
+    toast('Event saved! ✓', 'ok');
+    clearForm();
+    goPage('pg-events');
+  } catch(e) {
+    toast('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '✔  Save Event';
+  }
+}
+
+async function deleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  closeDetailSheet();
+  try {
+    if (API_URL) {
+      await api('deleteEvent', { id });
+      await syncData();
+    } else {
+      events = events.filter(e => String(e.id) !== String(id));
+      localStorage.setItem('events_cache', JSON.stringify(events));
+      renderHome(); renderList();
+    }
+    toast('Event deleted', 'ok');
+  } catch(e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function saveConfig() {
+  API_URL = document.getElementById('cfg-url').value.trim();
+  localStorage.setItem('api_url', API_URL);
+  document.getElementById('setup-notice').style.display = API_URL ? 'none' : 'block';
+  toast(API_URL ? 'Connected! Syncing…' : 'URL cleared', API_URL ? 'ok' : 'err');
+  if (API_URL) syncData();
+}
+
+function renderSettings() {
+  renderTagList('types-list', eventTypes, 'type');
+  renderTagList('halls-list', hallsList,  'hall');
+  loadFormLists();
+}
+
+function renderTagList(containerId, arr, kind) {
+  document.getElementById(containerId).innerHTML = arr.map((t,i) =>
+    `<div class="tag" style="cursor:pointer;padding:5px 10px" onclick="removeItem('${kind}',${i})">${t} ✕</div>`
+  ).join('');
+}
+
+function addType() {
+  const v = document.getElementById('new-type').value.trim();
+  if (!v) return;
+  eventTypes.push(v);
+  localStorage.setItem('ev_types', JSON.stringify(eventTypes));
+  document.getElementById('new-type').value = '';
+  renderSettings();
+}
+
+function addHall() {
+  const v = document.getElementById('new-hall').value.trim();
+  if (!v) return;
+  hallsList.push(v);
+  localStorage.setItem('halls_list', JSON.stringify(hallsList));
+  document.getElementById('new-hall').value = '';
+  renderSettings();
+}
+
+function removeItem(kind, idx) {
+  if (kind === 'type') { eventTypes.splice(idx,1); localStorage.setItem('ev_types', JSON.stringify(eventTypes)); }
+  else                 { hallsList.splice(idx,1);  localStorage.setItem('halls_list', JSON.stringify(hallsList)); }
+  renderSettings();
+}
+
+function loadFormLists() {
+  const ts = document.getElementById('f-type');
+  const hs = document.getElementById('f-hall');
+  ts.innerHTML = '<option value="">Select type…</option>' + eventTypes.map(t=>`<option>${t}</option>`).join('');
+  hs.innerHTML = '<option value="">Select hall…</option>' + hallsList.map(h=>`<option>${h}</option>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+function clearForm() {
+  ['f-date','f-customer','f-people','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-hall').value = '';
+}
+
+function fmtDate(ds) {
+  if (!ds) return '—';
+  const d = new Date(ds);
+  return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show ' + type;
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
