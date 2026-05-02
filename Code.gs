@@ -16,6 +16,7 @@
 // ================================================================
 
 const SHEET_NAME = "EVENTS";
+const API_KEY    = "Pantelidis2026!";
 
 function doGet(e) {
   return handleRequest(e);
@@ -31,6 +32,13 @@ function handleRequest(e) {
   output.setMimeType(ContentService.MimeType.JSON);
   
   try {
+    // ── API Key check ─────────────────────────────────────────
+    const key = e.parameter.key || (e.postData ? JSON.parse(e.postData.contents).key : null);
+    if (key !== API_KEY) {
+      output.setContent(JSON.stringify({ success: false, error: "Unauthorized: Invalid API key" }));
+      return output;
+    }
+    // ─────────────────────────────────────────────────────────
     const action = e.parameter.action || (e.postData ? JSON.parse(e.postData.contents).action : null);
     const data   = e.postData ? JSON.parse(e.postData.contents) : e.parameter;
     
@@ -38,6 +46,7 @@ function handleRequest(e) {
     switch(action) {
       case "getEvents":   result = getEvents();           break;
       case "addEvent":    result = addEvent(data);        break;
+      case "syncAll":     result = syncAll(data);         break;
       case "deleteEvent": result = deleteEvent(data.id);  break;
       case "updateEvent": result = updateEvent(data);     break;
       case "getStats":    result = getStats();            break;
@@ -196,6 +205,42 @@ function getStats() {
     byMonth:   byMonth,
     nextEvent: nextEvent
   };
+}
+
+
+// ── SYNC ALL from Excel — replaces all data ─────────────────────
+function syncAll(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ws = ss.getSheetByName(SHEET_NAME);
+  
+  // Clear all data except header
+  const lastRow = ws.getLastRow();
+  if (lastRow > 1) {
+    ws.getRange(2, 1, lastRow - 1, 7).clearContent();
+  }
+  
+  const events = data.events;
+  if (!events || events.length === 0) {
+    return { message: "Sheet cleared, no events to write." };
+  }
+  
+  // Write all events
+  const rows = events.map(e => [
+    e.id,
+    e.date ? new Date(e.date) : "",
+    e.customer || "",
+    e.type     || "",
+    e.hall     || "",
+    parseInt(e.people) || 0,
+    e.status   || "Confirmed"
+  ]);
+  
+  ws.getRange(2, 1, rows.length, 7).setValues(rows);
+  
+  // Format date column
+  ws.getRange(2, 2, rows.length, 1).setNumberFormat("dd/mm/yyyy");
+  
+  return { message: "Sync complete", count: rows.length };
 }
 
 // ── LISTS (event types & halls) ─────────────────────────────────
